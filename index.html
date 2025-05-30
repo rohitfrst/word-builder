@@ -158,6 +158,8 @@
     let score1 = 0, score2 = 0;
     let isTwoPlayer = false;
     let gameTime = 90;
+    let player1Time = 90;
+    let player2Time = 90;
 
     function getTodayKey() {
       return new Date().toISOString().slice(0, 10);
@@ -279,16 +281,48 @@
 
     function updateGameTimer() {
       const timer = document.getElementById("wordTimer");
+      clearInterval(gameTimer);
       gameTimer = setInterval(() => {
-        gameTime--;
-        timer.textContent = gameTime;
-        if (gameTime <= 0) {
-          clearInterval(gameTimer);
-          alert(`🏆 Game Over!\n${isTwoPlayer ? (score1 > score2 ? "Player 1 Wins!" : score2 > score1 ? "Player 2 Wins!" : "It's a tie!") : `You scored ${score1} XP!`}`);
-          document.getElementById("inputWord").disabled = true;
-          updateStreak();
+        if (isTwoPlayer) {
+          if (playerTurn === 1) {
+            if (player1Time > 0) {
+              player1Time--;
+              timer.textContent = player1Time;
+            } else {
+              playerTurn = 2;
+              updateUI();
+              updateGameTimer();
+              return;
+            }
+          } else {
+            if (player2Time > 0) {
+              player2Time--;
+              timer.textContent = player2Time;
+            } else {
+              clearInterval(gameTimer);
+              showGameResult();
+              return;
+            }
+          }
+        } else {
+          if (player1Time > 0) {
+            player1Time--;
+            timer.textContent = player1Time;
+          } else {
+            clearInterval(gameTimer);
+            showGameResult();
+            return;
+          }
         }
       }, 1000);
+    }
+
+    function showGameResult() {
+      const result = isTwoPlayer
+        ? score1 > score2 ? "Player 1 Wins!" : score2 > score1 ? "Player 2 Wins!" : "It's a tie!"
+        : `You scored ${score1} XP!`;
+      alert(`🏆 Game Over!\n${result}`);
+      document.getElementById("inputWord").disabled = true;
     }
 
     function startGame() {
