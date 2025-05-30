@@ -21,11 +21,6 @@
       justify-content: center;
       min-height: 100vh;
       margin: 0;
-      transition: background 0.5s, color 0.5s;
-    }
-    body.light-mode {
-      background: var(--bg-light);
-      color: var(--text-light);
     }
     h1 {
       margin-bottom: 20px;
@@ -40,14 +35,7 @@
       width: 90%;
       max-width: 400px;
       text-align: center;
-      transition: 0.3s ease all;
       margin-bottom: 20px;
-    }
-    body.light-mode .game,
-    body.light-mode .mode-select,
-    body.light-mode .modal {
-      background: #f4f4f4;
-      color: #000;
     }
     input, select {
       width: 90%;
@@ -81,36 +69,40 @@
       border-radius: 10px;
       font-size: 0.9em;
     }
-    .score, .level, .streak, .timer, .turn {
+    .score, .timer, .turn {
       margin-top: 12px;
       font-weight: bold;
     }
-    .flash {
-      animation: flash 0.4s ease-in-out;
-    }
-    .fail {
-      animation: fail 0.4s ease-in-out;
-    }
-    @keyframes flash {
-      0% { background-color: #38b2ac; }
-      100% { background-color: #1e1e2f; }
-    }
-    @keyframes fail {
-      0% { background-color: #e53e3e; }
-      100% { background-color: #1e1e2f; }
-    }
-    .toggle-switch {
+    .info-button {
       position: fixed;
       top: 20px;
-      right: 20px;
+      left: 20px;
+      background: #fff;
+      color: #000;
+      font-weight: bold;
+    }
+        .flash-correct {
+      animation: flashCorrect 0.4s;
+    }
+    .flash-wrong {
+      animation: flashWrong 0.4s;
+    }
+    @keyframes flashCorrect {
+      0% { background-color: #38b2ac; }
+      100% { background-color: var(--bg-dark); }
+    }
+    @keyframes flashWrong {
+      0% { background-color: #e53e3e; }
+      100% { background-color: var(--bg-dark); }
     }
   </style>
 </head>
 <body>
+  <button class="info-button" id="infoBtn" onclick="toggleInstructions()">ℹ️</button>
 
   <h1>Word Builder</h1>
 
-  <div class="modal">
+  <div class="modal" id="instructionModal">
     <h3>📘 How to Play</h3>
     <ul style="text-align:left; padding-left:20px;">
       <li>A base word will be shown.</li>
@@ -119,11 +111,22 @@
       <li>Each game lasts 90 seconds.</li>
       <li>Score points based on the length of valid words.</li>
       <li>You can play only <strong>5 times in 24 hours</strong>. Limit resets at <strong>12 AM</strong>.</li>
-      <li>Play solo or challenge a friend in 2-player mode!</li>
+      <li>Your streak and max streak are tracked locally.</li>
     </ul>
+    <p><strong>Streak:</strong> <span id="currentStreak">0</span> | <strong>Max Streak:</strong> <span id="maxStreak">0</span></p>
+    <p><strong>Plays today:</strong> <span id="instructionPlays">0</span> / 5</p>
+    <button onclick="continueToModeSelect()">Continue</button>
   </div>
 
-  <div class="mode-select" id="modeSelect">
+  <div class="modal" id="limitModal" style="display:none">
+    <h3>🚫 Daily Limit Reached</h3>
+    <p>You've played 5 times today. Please come back tomorrow after midnight!</p>
+    <p><strong>Plays today:</strong> <span id="playsTodayCount">5</span> / 5</p>
+    <p><strong>Streak:</strong> <span id="currentStreak2">0</span> | <strong>Max Streak:</strong> <span id="maxStreak2">0</span></p>
+    <p>Next play available in: <span id="resetTimer">00:00:00</span></p>
+  </div>
+
+  <div class="mode-select" id="modeSelect" style="display:none">
     <label for="mode">Select Game Mode:</label>
     <select id="mode">
       <option value="single">Single Player</option>
@@ -156,19 +159,13 @@
     let isTwoPlayer = false;
     let gameTime = 90;
 
-    document.getElementById('themeToggle').addEventListener('change', (e) => {
-      document.body.classList.toggle('light-mode', e.target.checked);
-    });
-
     function getTodayKey() {
-      const today = new Date();
-      return today.toISOString().slice(0, 10);
+      return new Date().toISOString().slice(0, 10);
     }
 
     function getPlayCount() {
-      const key = getTodayKey();
       const data = JSON.parse(localStorage.getItem("playCount") || '{}');
-      return data[key] || 0;
+      return data[getTodayKey()] || 0;
     }
 
     function incrementPlayCount() {
@@ -178,29 +175,53 @@
       localStorage.setItem("playCount", JSON.stringify(data));
     }
 
+    function updateResetTimer() {
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      const msLeft = midnight - now;
+      const hrs = String(Math.floor(msLeft / 3600000)).padStart(2, '0');
+      const mins = String(Math.floor((msLeft % 3600000) / 60000)).padStart(2, '0');
+      const secs = String(Math.floor((msLeft % 60000) / 1000)).padStart(2, '0');
+      document.getElementById("resetTimer").textContent = `${hrs}:${mins}:${secs}`;
+      setTimeout(updateResetTimer, 1000);
+    }
+
+    function updateStreak() {
+      const today = getTodayKey();
+      let streakData = JSON.parse(localStorage.getItem('streakData')) || {
+        lastPlayed: null,
+        currentStreak: 0,
+        maxStreak: 0
+      };
+      if (streakData.lastPlayed) {
+        const last = new Date(streakData.lastPlayed);
+        const curr = new Date(today);
+        const diff = (curr - last) / (1000 * 60 * 60 * 24);
+        if (diff === 1) streakData.currentStreak++;
+        else if (diff > 1) streakData.currentStreak = 1;
+      } else {
+        streakData.currentStreak = 1;
+      }
+      streakData.lastPlayed = today;
+      streakData.maxStreak = Math.max(streakData.maxStreak, streakData.currentStreak);
+      localStorage.setItem('streakData', JSON.stringify(streakData));
+      document.getElementById('currentStreak').textContent = streakData.currentStreak;
+      document.getElementById('maxStreak').textContent = streakData.maxStreak;
+      document.getElementById('currentStreak2').textContent = streakData.currentStreak;
+      document.getElementById('maxStreak2').textContent = streakData.maxStreak;
+    }
+
     function setDailyWord() {
-      const word = wordPool[Math.floor(Math.random() * wordPool.length)];
-      baseWord = word;
-      allowedLetters = word.toLowerCase().split('');
+      baseWord = wordPool[Math.floor(Math.random() * wordPool.length)];
+      allowedLetters = baseWord.toLowerCase().split('');
       document.getElementById("baseWord").textContent = baseWord;
     }
 
     function updateUI() {
       document.getElementById("score1").textContent = score1;
       document.getElementById("score2").textContent = score2;
-      document.getElementById("turnIndicator").textContent =
-        isTwoPlayer ? `Current Turn: Player ${playerTurn}` : "Single Player Mode";
-    }
-
-    function isValid(word) {
-      const wordArr = word.toLowerCase().split('');
-      const tempLetters = [...allowedLetters];
-      for (let letter of wordArr) {
-        const index = tempLetters.indexOf(letter);
-        if (index === -1) return false;
-        tempLetters.splice(index, 1);
-      }
-      return true;
+      document.getElementById("turnIndicator").textContent = isTwoPlayer ? `Current Turn: Player ${playerTurn}` : "Single Player Mode";
     }
 
     async function submitWord() {
@@ -208,11 +229,23 @@
       const word = input.value.trim().toLowerCase();
       input.value = "";
 
-      if (word.length < 3 || usedWords.has(word) || !isValid(word)) return;
+      const gameBox = document.getElementById("gameBox");
+
+      if (word.length < 3 || usedWords.has(word) || !isValid(word)) {
+        gameBox.classList.remove("flash-correct", "flash-wrong");
+        void gameBox.offsetWidth; // trigger reflow
+        gameBox.classList.add("flash-wrong");
+        return;
+      }
 
       try {
         const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-        if (!response.ok) return;
+        if (!response.ok) {
+          gameBox.classList.remove("flash-correct", "flash-wrong");
+          void gameBox.offsetWidth;
+          gameBox.classList.add("flash-wrong");
+          return;
+        }
 
         usedWords.add(word);
         if (!isTwoPlayer || playerTurn === 1) score1 += word.length;
@@ -221,14 +254,27 @@
         document.getElementById("wordList").innerHTML +=
           `<div>${isTwoPlayer ? `Player ${playerTurn}` : "You"}: ${word}</div>`;
 
-        document.getElementById("gameBox").classList.add("flash");
-        setTimeout(() => document.getElementById("gameBox").classList.remove("flash"), 400);
+        gameBox.classList.remove("flash-correct", "flash-wrong");
+        void gameBox.offsetWidth;
+        gameBox.classList.add("flash-correct");
 
         if (isTwoPlayer) playerTurn = playerTurn === 1 ? 2 : 1;
         updateUI();
       } catch (err) {
         console.error("API error", err);
+        gameBox.classList.remove("flash-correct", "flash-wrong");
+        void gameBox.offsetWidth;
+        gameBox.classList.add("flash-wrong");
       }
+    }
+
+    function isValid(word) {
+      const temp = [...allowedLetters];
+      return word.split('').every(l => {
+        const i = temp.indexOf(l);
+        if (i > -1) return temp.splice(i, 1);
+        return false;
+      });
     }
 
     function updateGameTimer() {
@@ -238,53 +284,54 @@
         timer.textContent = gameTime;
         if (gameTime <= 0) {
           clearInterval(gameTimer);
-          const result = isTwoPlayer
-            ? score1 > score2 ? "Player 1 Wins!" : score2 > score1 ? "Player 2 Wins!" : "It's a tie!"
-            : `You scored ${score1} XP!`;
-          alert(`🏆 Game Over!\n${result}`);
+          alert(`🏆 Game Over!\n${isTwoPlayer ? (score1 > score2 ? "Player 1 Wins!" : score2 > score1 ? "Player 2 Wins!" : "It's a tie!") : `You scored ${score1} XP!`}`);
           document.getElementById("inputWord").disabled = true;
+          updateStreak();
         }
       }, 1000);
     }
 
     function startGame() {
-      const playsToday = getPlayCount();
-      if (playsToday >= MAX_PLAYS_PER_DAY) {
-        alert("You've reached the maximum 5 plays for today. Please come back after midnight!");
-        return;
-      }
-
       incrementPlayCount();
       isTwoPlayer = document.getElementById("mode").value === "two";
-      document.querySelector(".modal").style.display = "none";
       document.getElementById("modeSelect").style.display = "none";
       document.getElementById("gameBox").style.display = "block";
-
       usedWords = new Set();
-      score1 = 0;
-      score2 = 0;
-      playerTurn = 1;
-      gameTime = 90;
-      document.getElementById("inputWord").disabled = false;
-      document.getElementById("inputWord").value = "";
-      document.getElementById("wordList").innerHTML = "";
-
+      score1 = 0; score2 = 0; playerTurn = 1; gameTime = 90;
       setDailyWord();
       updateUI();
       updateGameTimer();
     }
 
     function restartGame() {
-      document.querySelector(".modal").style.display = "block";
-      document.getElementById("gameBox").style.display = "none";
+      location.reload();
+    }
+
+    function continueToModeSelect() {
+      document.getElementById("instructionModal").style.display = "none";
       document.getElementById("modeSelect").style.display = "block";
-      document.getElementById("playLimitInfo").textContent =
-        `Plays left today: ${MAX_PLAYS_PER_DAY - getPlayCount()}`;
+    }
+
+    function toggleInstructions() {
+      document.getElementById("instructionModal").style.display = 'block';
+      document.getElementById("modeSelect").style.display = 'none';
+      document.getElementById("gameBox").style.display = 'none';
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("playLimitInfo").textContent =
-        `Plays left today: ${MAX_PLAYS_PER_DAY - getPlayCount()}`;
+      updateStreak();
+      const playsToday = getPlayCount();
+      document.getElementById("instructionPlays").textContent = playsToday;
+      if (playsToday >= MAX_PLAYS_PER_DAY) {
+        document.getElementById("instructionModal").style.display = "none";
+        document.getElementById("limitModal").style.display = "block";
+        document.getElementById("playsTodayCount").textContent = playsToday;
+        updateResetTimer();
+        document.getElementById("infoBtn").style.display = "none";
+      } else {
+        document.getElementById("instructionModal").style.display = "block";
+        document.getElementById("infoBtn").style.display = "block";
+      }
     });
   </script>
 </body>
