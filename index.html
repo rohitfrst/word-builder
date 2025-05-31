@@ -784,6 +784,7 @@
         feedbackEl.style.color = 'var(--error-color)';
         feedbackEl.textContent = '❌ Too short. Minimum 3 letters.';
         playSound('wrong');
+        inputEl.value = '';
         isCheckingApi = false;
         isPaused = wasPaused;
         pauseBtn.disabled = false;
@@ -798,6 +799,7 @@
         feedbackEl.style.color = 'var(--error-color)';
         feedbackEl.textContent = '❌ You already used that word.';
         playSound('wrong');
+        inputEl.value = '';
         isCheckingApi = false;
         isPaused = wasPaused;
         pauseBtn.disabled = false;
@@ -812,6 +814,7 @@
         feedbackEl.style.color = 'var(--error-color)';
         feedbackEl.textContent = '❌ Used letters not in base word.';
         playSound('wrong');
+        inputEl.value = '';
         isCheckingApi = false;
         isPaused = wasPaused;
         pauseBtn.disabled = false;
@@ -831,6 +834,7 @@
           feedbackEl.style.color = 'var(--error-color)';
           feedbackEl.textContent = '❌ Not an English word.';
           playSound('wrong');
+          inputEl.value = '';
           isCheckingApi = false;
           isPaused = wasPaused;
           pauseBtn.disabled = false;
@@ -872,7 +876,8 @@
         feedbackEl.textContent = '❌ Dictionary API error.';
         playSound('wrong');
       }
-
+      
+      inputEl.value = '';
       isCheckingApi = false;
       isPaused = wasPaused;
       pauseBtn.disabled = false;
