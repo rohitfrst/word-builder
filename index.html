@@ -137,6 +137,23 @@
       background: var(--accent-hover);
     }
 
+    /* Close button in instruction modal */
+    .close-instr {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: transparent;
+      border: none;
+      font-size: 1.2rem;
+      color: var(--text-dark);
+      cursor: pointer;
+      display: none; /* only show when game has started */
+    }
+
+    .close-instr:hover {
+      color: var(--error-color);
+    }
+
     /* ================= Info Button ================= */
     .info-button {
       position: fixed;
@@ -344,7 +361,6 @@
     }
 
     /* ================= Responsive Adjustments ================= */
-
     /* Small phones (≤ 350px) */
     @media (max-width: 350px) {
       .modal,
@@ -457,6 +473,8 @@
   <!-- Instruction Modal -->
   <div class="modal-backdrop" id="instructionBackdrop" role="dialog" aria-modal="true" aria-labelledby="instrTitle">
     <div class="modal" tabindex="0">
+      <!-- Close button only visible if game has started -->
+      <button class="close-instr" id="instrCloseBtn" aria-label="Close instructions" onclick="toggleInstructions()">✖️</button>
       <h3 id="instrTitle">📘 How to Play</h3>
       <ul>
         <li>A base word will be shown.</li>
@@ -603,6 +621,7 @@
     const resetTimerEl = document.getElementById('resetTimer');
     const ariaPauseAnnounceEl = document.getElementById('ariaPauseAnnounce');
     const timerBarEl = document.querySelector('.timer-bar');
+    const instrCloseBtn = document.getElementById('instrCloseBtn');
 
     let usedWords = new Set();
     let baseWord = '';
@@ -1058,7 +1077,7 @@
             }
           }
         } else if (e.key === 'Escape') {
-          // Prevent Escape from closing instruction or limit modals
+          // Only allow Escape to close result or limit modals, not instructions
           if (backdropId !== 'limitBackdrop' && backdropId !== 'instructionBackdrop') {
             backdrop.style.display = 'none';
             restoreBackgroundAria(backdrop);
@@ -1076,7 +1095,7 @@
       });
 
       backdrop.addEventListener('click', (ev) => {
-        // Prevent outside clicks from closing instruction & limit
+        // Only allow outside clicks to close result modal; not instructions or limit
         if (
           ev.target === backdrop &&
           backdropId !== 'limitBackdrop' &&
@@ -1090,15 +1109,19 @@
 
     // Show or hide the instructions modal
     function toggleInstructions() {
-      if (instructionBackdrop.style.display === 'flex') {
+      const isOpen = instructionBackdrop.style.display === 'flex';
+      if (isOpen) {
         instructionBackdrop.style.display = 'none';
         restoreBackgroundAria(instructionBackdrop);
       } else {
         modeSelect.style.display = 'none';
+        // If the game has already started (gameBox is visible), hide "Continue" and show "Close"
         if (gameBox.style.display === 'block') {
           document.getElementById('continueBtn').style.display = 'none';
+          instrCloseBtn.style.display = 'inline-block';
         } else {
           document.getElementById('continueBtn').style.display = 'inline-block';
+          instrCloseBtn.style.display = 'none';
         }
         instructionBackdrop.style.display = 'flex';
         trapFocus('instructionBackdrop');
@@ -1158,6 +1181,8 @@
       updateGameTimer();
 
       setTimeout(() => inputEl.focus(), 300);
+      // Once game has started, always show the info button so instructions can be reopened
+      document.getElementById('infoBtn').style.display = 'block';
     }
 
     // Update text below mode-select about plays left
